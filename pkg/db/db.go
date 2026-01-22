@@ -53,3 +53,11 @@ func Init(dbFile string) error {
 func Conn() *sql.DB {
 	return db
 }
+
+// Close closes the opened database connection.
+func Close() error {
+	if db == nil {
+		return nil
+	}
+	return db.Close()
+}

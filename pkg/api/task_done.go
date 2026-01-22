@@ -18,27 +18,27 @@ func TaskDoneHandler(w http.ResponseWriter, r *http.Request) {
 
 	id := strings.TrimSpace(r.URL.Query().Get("id"))
 	if id == "" {
-		writeError(w, errors.New("Не указан идентификатор"))
+		writeError(w, errors.New("Не указан идентификатор"), http.StatusBadRequest)
 		return
 	}
 
 	task, err := db.GetTask(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, errors.New("Задача не найдена"))
+			writeError(w, errors.New("Задача не найдена"), http.StatusNotFound)
 			return
 		}
-		writeError(w, err)
+		writeError(w, err, http.StatusInternalServerError)
 		return
 	}
 
 	if strings.TrimSpace(task.Repeat) == "" {
 		if err := db.DeleteTask(id); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				writeError(w, errors.New("Задача не найдена"))
+				writeError(w, errors.New("Задача не найдена"), http.StatusNotFound)
 				return
 			}
-			writeError(w, err)
+			writeError(w, err, http.StatusInternalServerError)
 			return
 		}
 		writeJSON(w, map[string]string{})
@@ -48,15 +48,15 @@ func TaskDoneHandler(w http.ResponseWriter, r *http.Request) {
 	today := time.Now().Format(dateLayout)
 	next, err := NextDate(today, task.Date, task.Repeat)
 	if err != nil {
-		writeError(w, errors.New("Неверный формат правила повторения"))
+		writeError(w, errors.New("Неверный формат правила повторения"), http.StatusBadRequest)
 		return
 	}
 	if err := db.UpdateDate(next, id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, errors.New("Задача не найдена"))
+			writeError(w, errors.New("Задача не найдена"), http.StatusNotFound)
 			return
 		}
-		writeError(w, err)
+		writeError(w, err, http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, map[string]string{})

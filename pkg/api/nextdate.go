@@ -63,6 +63,10 @@ func NextDate(nowStr, dateStr, repeat string) (string, error) {
 
 // NextDateHandler handles GET /api/nextdate requests.
 func NextDateHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
 	query := r.URL.Query()
 	nowStr := query.Get("now")
 	dateStr := query.Get("date")
@@ -70,6 +74,7 @@ func NextDateHandler(w http.ResponseWriter, r *http.Request) {
 
 	next, err := NextDate(nowStr, dateStr, repeat)
 	if err != nil {
+		writeError(w, err, http.StatusBadRequest)
 		return
 	}
 	_, _ = w.Write([]byte(next))

@@ -12,6 +12,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Println("Failed to close DB:", err)
+		}
+	}()
 
 	port := ":7540"
 	webDir := "./web"
@@ -22,5 +27,7 @@ func main() {
 	http.Handle("/", http.FileServer(http.Dir(webDir)))
 
 	log.Println("Server started on port", port)
-	log.Fatal(http.ListenAndServe(port, nil))
+	if err := http.ListenAndServe(port, nil); err != nil {
+		log.Println("Server stopped with error:", err)
+	}
 }

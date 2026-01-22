@@ -40,7 +40,8 @@ func TaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func writeError(w http.ResponseWriter, err error) {
+func writeError(w http.ResponseWriter, err error, status int) {
+	w.WriteHeader(status)
 	writeJSON(w, map[string]string{"error": err.Error()})
 }
 
@@ -52,16 +53,16 @@ func writeJSON(w http.ResponseWriter, payload any) {
 func handleGetTask(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.URL.Query().Get("id"))
 	if id == "" {
-		writeError(w, errors.New("Не указан идентификатор"))
+		writeError(w, errors.New("Не указан идентификатор"), http.StatusBadRequest)
 		return
 	}
 	task, err := db.GetTask(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, errors.New("Задача не найдена"))
+			writeError(w, errors.New("Задача не найдена"), http.StatusNotFound)
 			return
 		}
-		writeError(w, err)
+		writeError(w, err, http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, task)
@@ -70,31 +71,17 @@ func handleGetTask(w http.ResponseWriter, r *http.Request) {
 func handleAddTask(w http.ResponseWriter, r *http.Request) {
 	var req taskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, err)
+		writeError(w, err, http.StatusBadRequest)
 		return
 	}
 	task, err := validateTask(req, false)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, http.StatusBadRequest)
 		return
 	}
-
-	conn := db.Conn()
-	if conn == nil {
-		writeError(w, errors.New("База данных не инициализирована"))
-		return
-	}
-
-	res, err := conn.Exec(`INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?)`,
-		task.Date, task.Title, task.Comment, task.Repeat)
+	id, err := db.AddTask(task)
 	if err != nil {
-		writeError(w, err)
-		return
-	}
-
-	id, err := res.LastInsertId()
-	if err != nil {
-		writeError(w, err)
+		writeError(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -104,21 +91,21 @@ func handleAddTask(w http.ResponseWriter, r *http.Request) {
 func handleUpdateTask(w http.ResponseWriter, r *http.Request) {
 	var req taskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, err)
+		writeError(w, err, http.StatusBadRequest)
 		return
 	}
 	task, err := validateTask(req, true)
 	if err != nil {
-		writeError(w, err)
+		writeError(w, err, http.StatusBadRequest)
 		return
 	}
 
 	if err := db.UpdateTask(task); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, errors.New("Задача не найдена"))
+			writeError(w, errors.New("Задача не найдена"), http.StatusNotFound)
 			return
 		}
-		writeError(w, err)
+		writeError(w, err, http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, map[string]string{})
@@ -127,15 +114,15 @@ func handleUpdateTask(w http.ResponseWriter, r *http.Request) {
 func handleDeleteTask(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.URL.Query().Get("id"))
 	if id == "" {
-		writeError(w, errors.New("Не указан идентификатор"))
+		writeError(w, errors.New("Не указан идентификатор"), http.StatusBadRequest)
 		return
 	}
 	if err := db.DeleteTask(id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			writeError(w, errors.New("Задача не найдена"))
+			writeError(w, errors.New("Задача не найдена"), http.StatusNotFound)
 			return
 		}
-		writeError(w, err)
+		writeError(w, err, http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, map[string]string{})

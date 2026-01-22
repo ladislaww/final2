@@ -16,9 +16,6 @@ type Task struct {
 
 func Tasks(limit int) ([]*Task, error) {
 	conn := Conn()
-	if conn == nil {
-		return nil, sql.ErrConnDone
-	}
 
 	rows, err := conn.Query(
 		`SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date ASC LIMIT ?`,
@@ -54,6 +51,24 @@ func Tasks(limit int) ([]*Task, error) {
 		return nil, err
 	}
 	return tasks, nil
+}
+
+func AddTask(task *Task) (int64, error) {
+	if task == nil {
+		return 0, errors.New("task is nil")
+	}
+	conn := Conn()
+	if conn == nil {
+		return 0, sql.ErrConnDone
+	}
+	res, err := conn.Exec(
+		`INSERT INTO scheduler (date, title, comment, repeat) VALUES (?, ?, ?, ?)`,
+		task.Date, task.Title, task.Comment, task.Repeat,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
 }
 
 func GetTask(id string) (*Task, error) {
